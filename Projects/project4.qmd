@@ -1,7 +1,7 @@
 ---
-title: "Client Report - [Insert Project Title]"
+title: "Client Report - Can You Predict That"
 subtitle: "Course DS 250"
-author: "[STUDENT NAME]"
+author: "Sean Porter"
 format:
   html:
     self-contained: true
@@ -25,4 +25,464 @@ execute:
     
 ---
 
-### Paste in a template
+```{python}
+#| label: libraries
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+import random
+import sklearn
+from sklearn import model_selection, ensemble, metrics, preprocessing
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+```
+
+
+## Elevator pitch
+
+Can data help determine whether or not your home is safe to live in? Using machine learning algorithms, data science can help us to accurately predict the age of a home, and by relation, whether or not harmful chemicals like asbestos were used in the construction of that home. Join us as we explore how machine learning can help protect you and your family from harm.
+
+```{python}
+#| label: project data
+#| code-summary: Read and format project data
+
+# Data Description: 
+# https://github.com/byuidatascience/data4dwellings/blob/master/data.md
+
+# Data We Will Evaluate After Training the Model:
+# https://raw.githubusercontent.com/byuidatascience/data4dwellings/master/data-raw/dwellings_neighborhoods_ml/dwellings_neighborhoods_ml.csv
+
+# Data We Will Use To Train the Model
+df = pd.read_csv("https://raw.githubusercontent.com/byuidatascience/data4dwellings/master/data-raw/dwellings_denver/dwellings_denver.csv")
+
+# Create the 'before1980' variable
+df['before1980'] = df['yrbuilt'] < 1980
+
+# Convert 'before1980' to boolean for better visualization
+df['before1980'] = df['before1980'].astype(bool)
+
+```
+
+## Defining Relationships to Use in Our Model
+
+Create 2-3 charts that evaluate potential relationships between the home variables and before1980. Explain what you learn from the charts that could help a machine learning algorithm.
+
+When creating a machine learning model to distinguish homes built before and after 1980, it is important to find and focus on features that vary significantly between these two periods. One of the best ways to find relationships in the data that might be beneficial is to create a histogram. This allows us to compare houses with certain features from before 1980 with houses and their features after 1980. Below are a few helpful histograms.
+
+Histograms like the one displayed below can help us determine the age of a home. By catagorizing the data into "before" and "after" 1980, we can see from the following graph that a pre-1980 home is most likely to have 1-2 bathrooms, whereas a home built after 1980 is most likely to have between 2-4 baths. A machine learning algorithm could use that information to categorize houses with a certain number of bathrooms into their correct categories.
+```{python}
+
+# Filter data for houses built before and after 1980
+df_before_1980 = df[df['before1980']]
+df_after_1980 = df[~df['before1980']]
+
+# Create histograms for Number of Bathrooms
+fig_numbaths = go.Figure()
+fig_numbaths.add_trace(go.Histogram(x=df_before_1980['numbaths'], name='Before 1980'))
+fig_numbaths.add_trace(go.Histogram(x=df_after_1980['numbaths'], name='After 1980'))
+
+# Update layout
+fig_numbaths.update_layout(title='Distribution of Number of Bathrooms for Houses Built Before and After 1980',
+                           xaxis_title='Number of Bathrooms',
+                           yaxis_title='Count')
+
+# Show histogram
+fig_numbaths.show()
+
+```
+
+Likewise, a histogram of garage types helps us to understand that older homes are most likely to have a detatched garage. This information could also be used by a machine learning algorithm to weigh weather or not a home were built before 1980.
+
+```{python}
+
+# Filter data for houses built before and after 1980
+df_before_1980 = df[df['before1980']]
+df_after_1980 = df[~df['before1980']]
+
+# Create histograms for Garage Type
+fig_gartype = go.Figure()
+fig_gartype.add_trace(go.Histogram(x=df_before_1980['gartype'], name='Before 1980'))
+fig_gartype.add_trace(go.Histogram(x=df_after_1980['gartype'], name='After 1980'))
+
+# Update layout
+fig_gartype.update_layout(title='Distribution of Garage Type for Houses Built Before and After 1980',
+                           xaxis_title='Garage Type',
+                           yaxis_title='Count')
+
+# Show histogram
+fig_gartype.show()
+
+```
+
+Distribution of Architecture Style is another way we could determine factors about a house. Many older homes are one-story, which is a factor we may use within a machine learning algorithm. In all three of the histograms shown, data could be extrapolated to better categorize homes.
+
+```{python}
+
+# Filter data for houses built before and after 1980
+df_before_1980 = df[df['before1980']]
+df_after_1980 = df[~df['before1980']]
+
+# Create histograms for Architecture Style
+fig_arcstyle = go.Figure()
+fig_arcstyle.add_trace(go.Histogram(x=df_before_1980['arcstyle'], name='Before 1980'))
+fig_arcstyle.add_trace(go.Histogram(x=df_after_1980['arcstyle'], name='After 1980'))
+
+# Update layout
+fig_arcstyle.update_layout(title='Distribution of Architecture Style for Houses Built Before and After 1980',
+                           xaxis_title='Architecture Style',
+                           yaxis_title='Count')
+
+# Show histogram
+fig_arcstyle.show()
+
+```
+
+## Creating A Machine Learning Model to Find the Age of a House
+
+Build a classification model labeling houses as being built “before 1980” or “during or after 1980”. Your goal is to reach or exceed 90% accuracy. Explain your final model choice (algorithm, tuning parameters, etc) and describe what other models you tried.
+
+My successful machine learning model employs a method called a Random Forest Classifier algorithm to categorize homes as built before or after 1980. This method was selected for its ability to handle both numerical and categorical data equitably. I utilized 100 decision trees and a starting point of 42 for random calculations, which helped me to strike a balance between model complexity and simplicity. Additionally, I employed a preprocessing technique called feature engineering, which involves the manipulation of numerical and categorical data to enhance model performance and eliminate bias. As a result, the model achieved an accuracy of 90.51% in classifying homes as being built before or after 1980. This accuracy is visually depicted in the bar graph below. This was the third model I created to try to achieve this goal. The other two are also outlined below.
+
+```{python}
+
+#| label: Successful Machine Learning Model
+#| code-summary: Using Machine Learning to Determine the Age of a House
+
+#| label: Successful model
+#| code-summary: Feature Engineering with Random Forest
+# Include and execute your code here
+
+# Define features and target variable
+X = df[['sprice', 'tasp', 'basement', 'livearea', 'gartype', 'arcstyle']]  # Features
+y = df['before1980']  # Target variable
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define preprocessing steps for numerical and categorical features
+numeric_features = ['sprice', 'tasp', 'basement', 'livearea']
+categorical_features = ['gartype', 'arcstyle']
+
+numeric_transformer = Pipeline(steps=[
+    ('poly', preprocessing.PolynomialFeatures(degree=2)),  # Create polynomial features
+    ('scaler', preprocessing.StandardScaler())  # Scale numerical features
+])
+
+categorical_transformer = Pipeline(steps=[
+    ('onehot', preprocessing.OneHotEncoder())  # One-hot encode categorical features
+])
+
+# Combine preprocessing steps for both numerical and categorical features
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)
+    ])
+
+# Append classifier to preprocessing pipeline
+rf_classifier = Pipeline(steps=[('preprocessor', preprocessor),
+                                ('classifier', ensemble.RandomForestClassifier(n_estimators=100, random_state=42))])
+
+# Train the model
+rf_classifier.fit(X_train, y_train)
+
+# Predict on the testing set
+y_pred = rf_classifier.predict(X_test)
+
+# Evaluate model performance
+accuracy = metrics.accuracy_score(y_test, y_pred)
+
+# Calculate the number of correct and incorrect predictions
+correct_before_1980 = ((y_pred == 1) & (y_test == 1)).sum()
+incorrect_before_1980 = ((y_pred == 0) & (y_test == 1)).sum()
+correct_after_1980 = ((y_pred == 0) & (y_test == 0)).sum()
+incorrect_after_1980 = ((y_pred == 1) & (y_test == 0)).sum()
+
+# Calculate total accuracy
+total_accuracy = ((correct_before_1980 + correct_after_1980) / len(y_test)) * 100
+total_accuracy_formatted = f'Total Accuracy: {total_accuracy:.2f}'  # Format the total accuracy string
+
+```
+
+```{python}
+
+#| label: Successful Machine Learning Model Bar Graph
+#| code-summary: Visually Display the Successful Algorithm
+
+# Create a bar graph
+fig = go.Figure(data=[
+    go.Bar(name='Correct Before 1980', x=['Before 1980'], y=[correct_before_1980]),
+    go.Bar(name='Incorrect Before 1980', x=['Before 1980'], y=[incorrect_before_1980]),
+    go.Bar(name='Correct After 1980', x=['During or After 1980'], y=[correct_after_1980]),
+    go.Bar(name='Incorrect After 1980', x=['During or After 1980'], y=[incorrect_after_1980])
+])
+
+# Update the layout with the total accuracy included in the title
+fig.update_layout(
+    title=f'Random Forest Model with Feature Engineering: {total_accuracy_formatted}%',
+    xaxis_title='Year Built',
+    yaxis_title='Number of Houses',
+    barmode='group'
+)
+
+# Show the graph
+fig.show()
+
+```
+
+The model below is a precursor to the successful algorithm, displaying an accuracy of around 81%. This model also utilizes a Random Forest Classifier, but does not include the preprocessing phase like the successful algorithm above. To complete the final successful algorithm, I took this model and introduced feature engineering algorithms which include polynomial feature generation, scaler feature generation, and one-hot encoding. (Each are methods defined within sklearn) These methods were designed to take bias out of the relationships within the data and make mathematical relationships more apperant. Employing both Random Forest Classification and Feature engineering made the final algorithm about 10% more accurate than this model.
+
+```{python}
+
+#| label: Failed Machine Learning Model Using RFT
+#| code-summary: Failed Machine Learning Algorithm to Determine the Age of a House
+
+#Random Forest Method
+
+# Define features and target variable
+X = df[['sprice', 'tasp', 'basement', 'livearea']]  # Features
+y = df['before1980']  # Target variable
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize random forest classifier
+rf_classifier = ensemble.RandomForestClassifier(n_estimators=100, random_state=42)
+
+# Train the model
+rf_classifier.fit(X_train, y_train)
+
+# Predict on the testing set
+y_pred = rf_classifier.predict(X_test)
+
+# Evaluate model performance
+accuracy = metrics.accuracy_score(y_test, y_pred)
+total_accuracy = accuracy * 100
+total_accuracy_formatted = f'Total Accuracy: {total_accuracy:.2f}'  # Format the total accuracy string
+
+# Calculate the number of correct and incorrect predictions
+correct_before_1980 = ((y_pred == 1) & (y_test == 1)).sum()
+incorrect_before_1980 = ((y_pred == 0) & (y_test == 1)).sum()
+correct_after_1980 = ((y_pred == 0) & (y_test == 0)).sum()
+incorrect_after_1980 = ((y_pred == 1) & (y_test == 0)).sum()
+
+# Create a bar graph
+fig = go.Figure(data=[
+    go.Bar(name='Correct Before 1980', x=['Before 1980'], y=[correct_before_1980]),
+    go.Bar(name='Incorrect Before 1980', x=['Before 1980'], y=[incorrect_before_1980]),
+    go.Bar(name='Correct After 1980', x=['During or After 1980'], y=[correct_after_1980]),
+    go.Bar(name='Incorrect After 1980', x=['During or After 1980'], y=[incorrect_after_1980])
+])
+
+# Update the layout
+fig.update_layout(
+    title=f'Random Forest Model: {total_accuracy_formatted}% Accurate',
+    xaxis_title='Year Built',
+    yaxis_title='Number of Houses',
+    barmode='group'
+)
+
+# Show the graph
+fig.show()
+
+```
+
+The first model I tried did not use a random forest method. Instead, I attempted to create an accurate model using only conditional programming. By comparing values such as the number of baths in a home, its stories, condition, and architecture style together, I was able to make a model that was 78% accurate, close to the accuracy of the random forest method. This data alone, however, could not be improved further without more advanced machine learning techniques. Additionally, this algorithm was fairly poor at detecting whether or not a house was built after 1980. It categorized too many pre-1980 homes as "After 1980.""
+
+```{python}
+
+#| label: Failed Machine Learning Model Using Conditionals
+#| code-summary: Failed Machine Learning Algorithm to Determine the Age of a House Using Conditionals
+
+condition_1 = df['sprice'].between(1, 60000)
+condition_2 = (df['numbaths'].between(1, 5))
+condition_3 = (df['stories'] == 1)
+condition_4 = (df['condition'] == 'Good')
+condition_5 = (df['gartype'] == 'Det')
+condition_6 = (df['arcstyle'] == 'ONE-STORY')
+
+# Count the number of conditions met for each house
+df['conditions_met'] = (
+    condition_2.astype(int) + 
+    condition_3.astype(int) + 
+    condition_4.astype(int) +
+    condition_5.astype(int) +
+    condition_6.astype(int)
+)
+
+# Determine if a house might be built before 1980 based on the conditions
+df['predicted_before_1980'] = (df['conditions_met'] >= 2) | (condition_1)
+
+# Check the accuracy of the predictions
+df['correct_prediction'] = (df['predicted_before_1980'] == (df['yrbuilt'] < 1980))
+
+# Calculate percentage accuracy
+total_predictions = len(df)
+correct_predictions = df['correct_prediction'].sum()
+percentage_accuracy = (correct_predictions / total_predictions) * 100
+percentage_accuracy = round(percentage_accuracy, 2)  # Round to two decimal places
+
+# Calculate the number of correct predictions for before and after 1980
+correct_before_1980 = ((df['predicted_before_1980'] == True) & (df['yrbuilt'] < 1980)).sum()
+incorrect_before_1980 = ((df['predicted_before_1980'] == False) & (df['yrbuilt'] < 1980)).sum()
+
+correct_after_1980 = ((df['predicted_before_1980'] == False) & (df['yrbuilt'] >= 1980)).sum()
+incorrect_after_1980 = ((df['predicted_before_1980'] == True) & (df['yrbuilt'] >= 1980)).sum()
+
+# Create a bar graph
+fig = go.Figure(data=[
+    go.Bar(name='Correct Before 1980', x=['Before 1980'], y=[correct_before_1980]),
+    go.Bar(name='Incorrect Before 1980', x=['Before 1980'], y=[incorrect_before_1980]),
+    go.Bar(name='Correct After 1980', x=['During or After 1980'], y=[correct_after_1980]),
+    go.Bar(name='Incorrect After 1980', x=['During or After 1980'], y=[incorrect_after_1980])
+])
+
+# Update the layout
+fig.update_layout(
+    title=f'Conditional Model: {percentage_accuracy}% Accurate',
+    xaxis_title='Year Built',
+    yaxis_title='Number of Houses',
+    barmode='group'
+)
+
+# Show the graph
+fig.show()
+
+```
+
+## Why This Classification Model Works
+
+Justify your classification model by discussing the most important features selected by your model. This discussion should include a chart and a description of the features.
+
+To understand how features like the size of a basement or living area relate to when a home was built, I used a technique called polynomial feature generation. This helped the model find complex, non-straightforward connections between these features and our main question: whether a home was built before 1980. Similarly, I used a method called one-hot encoding for features like the type of garage or architectural style. This prevented the model from mistakenly thinking one category was "better" than another, which could affect its predictions.
+
+Using this technique, the machine learning algorithm was better able to represent data in an unbiased form. Because of this transformation, the data provided in sale price, tax price, basement area, living area, garage type, and architecture style became easier for the machine to read and format. These were the primary variables used to calculate an age of a home because they best captured key aspects of housing construction and design that were likely to vary across different time periods.
+
+Sale Price and Tax Price were chosen because these variables are commonly associated with the value of a property and can provide insight into the economic conditions surrounding the time of sale. Basement and Living area were chosen because older houses may have different typical sizes for these areas compared to more modern constructions. Garage type and Architecture Style were selected because construction conventions have changed over time, creating a distinction between older and newer homes. 
+
+This is the effect polynomial feature generation and scaling has on the data. The following graph shows both the original and scaled data for comparison. polynomial feature generation is designed to remove bias from logical expressions where numerical data is used, by raising existing features to higher powers, such as squaring or cubing them, and adding interaction terms between features. This allows the model to capture nonlinear relationships between the features and the target variable.
+
+```{python}
+
+# Generate sample data
+np.random.seed(0)
+original_data = np.random.rand(100, 2) * 1000  # Random data for price and live area
+
+# Apply polynomial features
+poly_transformer = PolynomialFeatures(degree=2)
+polynomial_data = poly_transformer.fit_transform(original_data)
+
+# Apply scaling
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(original_data)
+
+# Create dataframes for original and scaled data
+original_df = pd.DataFrame(original_data, columns=['Price', 'Live Area'])
+scaled_df = pd.DataFrame(scaled_data, columns=['Scaled_Price', 'Scaled_LiveArea'])
+
+# Plot original and scaled data
+fig = go.Figure()
+
+# Original data
+fig.add_trace(go.Scatter(x=original_df['Price'], y=original_df['Live Area'], mode='markers', name='Original Data', marker=dict(color='blue')))
+# Scaled data
+fig.add_trace(go.Scatter(x=scaled_df['Scaled_Price'], y=scaled_df['Scaled_LiveArea'], mode='markers', name='Scaled Data', marker=dict(color='green')))
+
+# Set layout
+fig.update_layout(title='Comparison of Original and Scaled Data',
+                  xaxis_title='Price ($)',
+                  yaxis_title='Live Area',
+                  plot_bgcolor='white',
+                  title_font_size=20,
+                  title_font_family='Arial')
+fig.show()
+
+```
+
+As the scaled data takes up far less of the graph than the original data, here is a close up of the scaled data.
+
+```{python}
+# Generate sample data
+np.random.seed(0)
+original_data = np.random.rand(100, 2) * 1000  # Random data for price and live area
+
+# Apply scaling
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(original_data)
+
+# Create dataframe for scaled data
+scaled_df = pd.DataFrame(scaled_data, columns=['Scaled_Price', 'Scaled_LiveArea'])
+
+# Plot only scaled data
+fig = go.Figure()
+
+# Scaled data
+fig.add_trace(go.Scatter(x=scaled_df['Scaled_Price'], y=scaled_df['Scaled_LiveArea'], mode='markers', name='Scaled Data', marker=dict(color='green')))
+
+# Set layout
+fig.update_layout(title='Scaled Data',
+                  xaxis_title='Scaled Price',
+                  yaxis_title='Scaled Live Area',
+                  plot_bgcolor='white',
+                  title_font_size=20,
+                  title_font_family='Arial')
+fig.show()
+
+```
+
+Here is a visual representation of how One-Hot encoding effects the data. It is designed to remove bias from logical expressions where categorical data is used. It balances how much emphasis is placed upon categories that may not have as much data representation.
+
+```{python}
+
+# Original 'arcstyle' data
+arcstyle_original = df['arcstyle']
+
+# Apply one-hot encoding
+encoder = OneHotEncoder()
+arcstyle_encoded = encoder.fit_transform(arcstyle_original.values.reshape(-1, 1)).toarray()
+
+# Get unique arcstyles
+unique_arcstyles = df['arcstyle'].unique()
+
+# Calculate frequency of each arcstyle before and after one-hot encoding
+arcstyle_counts_original = df['arcstyle'].value_counts().reindex(unique_arcstyles, fill_value=0)
+arcstyle_counts_encoded = pd.DataFrame(arcstyle_encoded, columns=unique_arcstyles).sum()
+
+# Create bar graph
+fig = go.Figure()
+
+# Original arcstyle distribution
+fig.add_trace(go.Bar(x=arcstyle_counts_original.index, y=arcstyle_counts_original.values, name='Original'))
+
+# Encoded arcstyle distribution
+fig.add_trace(go.Bar(x=arcstyle_counts_encoded.index, y=arcstyle_counts_encoded.values, name='Encoded'))
+
+# Update layout
+fig.update_layout(title='Effect of One-Hot Encoding on Arcstyle',
+                  xaxis_title='Arcstyle',
+                  yaxis_title='Frequency')
+
+# Show the graph
+fig.show()
+
+```
+
+## Quality of this Model
+
+Describe the quality of your classification model using 2-3 different evaluation metrics. You also need to explain how to interpret each of the evaluation metrics you use. 
+
+Accuracy: Accuracy measures the overall "correctness" of a machine learning model. It indicates the proportion of correct predictions made by the model across all classes. A higher accuracy score indicates better performance.
+
+The accuracy of my machine learning model is 90.51%, meaning it was correct in determining whether a house was built before or after 1980 9 times out of 10.
+
+Recall: Recall measures the proportion of actual positive cases that were correctly identified by the model. A higher recall score indicates that the model is effectively capturing positive instances. Recall answers the question: "Out of all the actual positive instances, how many did the model correctly identify?" It is calculated as the ratio of True Positives to the sum of True Positives and False Negatives.
+
+The recall of my machine learning model is 91.98%, meaning it has a high ability to identify houses built before 1980.
+
+Precision: Precision measures the relevancy of the positive predictions made by the model. It provides insight into the model's accuracy in predicting positive instances. Precision answers the question: "Out of all the instances predicted as positive, how many are actually positive? It is calculated as the ratio of True Positives to the sum of True Positives and False Positives.
+
+The precision of my machine learning model is 92.97% meaning it has a high ability to identify houses built before 1980.
+

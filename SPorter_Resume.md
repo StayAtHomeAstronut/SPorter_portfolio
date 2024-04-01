@@ -1,5 +1,4 @@
 ---
----
 layout: resume
 title: Seán Porter's Resume
 ---

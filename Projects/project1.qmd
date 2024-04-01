@@ -1,7 +1,7 @@
 ---
-title: "Client Report - [Insert Project Title]"
+title: "Client Report - What's in a Name?"
 subtitle: "Course DS 250"
-author: "[STUDENT NAME]"
+author: "Sean Porter"
 format:
   html:
     self-contained: true
@@ -25,4 +25,264 @@ execute:
     
 ---
 
-### Paste in a template
+## Elevator pitch
+
+Your name is an integral part of your identity, but did you know it says more about you than you might think? Join us as we dive into the history of names and discover exactly how factors such as popular culture and religion may have influenced your identity.
+
+```{python}
+
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+
+```
+
+```{python}
+
+df = pd.read_csv("https://raw.githubusercontent.com/byuidatascience/data4names/master/data-raw/names_year/names_year.csv")
+
+```
+
+## History of the Name Sean
+
+How does your name at your birth year compare to its use historically?
+
+Within the United States, the name 'Sean' witnessed a surge in popularity starting in the year 1950, and demonstrated a consistent upward trend over subsequent decades until its peak in 1990. Since the year 1990, the usage of the name 'Sean,' as it is spelled, has undergone a discernible decline in popularity, reflecting a noteworthy shift in its societal appeal.
+
+```{python}
+
+# Filter rows where the name is "Sean"
+sean_df = df[df['name'] == 'Sean']
+
+# Create a sum of counts across all states for each year
+sean_df['Total'] = sean_df.iloc[:, 2:].sum(axis=1)
+
+# Create a line graph with labels and a title
+fig = px.line(sean_df, x="year", y="Total", title="Usage of the Name 'Sean' Over Time in the United States")
+
+fig.show()
+
+```
+
+
+```{python}
+
+#Create a table showing the data behind the graph above.
+
+table = go.Figure(data=[go.Table(
+    header=dict(values=['Year', 'Total']),
+    cells=dict(values=[sean_df['year'], sean_df['Total']])
+)])
+
+table.update_layout(title='Usage of the name "Sean" over time in the United States - Table View')
+
+table.show()
+
+```
+
+
+## How Old is Brittany
+
+If you talked to someone named Brittany on the phone, what is your guess of his or her age? What ages would you not guess?
+
+The name Brittany showed a sharp but short-lived spike in popularity between the years 1980 to 2002, peaking in the year 1990. As of 2024, the most likely age of someone named Brittany is between 22 and 44 years old.
+
+The red dotted lines in the graph indicate the age range I would most likely guess someone named Brittany to be in.
+
+```{python}
+
+#Create a line graph of the popularity of the name Brittany over time. Highlight the region of interest, the age range I would guess, for the viewer.
+
+# Filter rows where the name is "Brittany"
+brittany_df = df[df['name'] == 'Brittany']
+
+# Add up all counts across all states for each year
+brittany_df['Total'] = brittany_df.iloc[:, 2:].sum(axis=1)
+
+# Create a line graph with labels and a title
+fig = px.line(brittany_df, x="year", y="Total", title="Use of the name 'Brittany' over time")
+
+# Add vertical lines at the years 1980 and 2000
+fig.add_vline(x=1980, line_dash="dash", line_color="red", annotation_text="1980", annotation_position="top left")
+fig.add_vline(x=2002, line_dash="dash", line_color="red", annotation_text="2002", annotation_position="top left")
+
+fig.show()
+
+```
+
+
+```{python}
+
+#Display data in a table based on line graph above 
+
+table = go.Figure(data=[go.Table(
+    header=dict(values=['Year', 'Total']),
+    cells=dict(values=[brittany_df['year'], brittany_df['Total']])
+)])
+
+table.update_layout(title='Usage of the name "Britanny" over time in the United States - Table View')
+
+table.show()
+
+```
+
+
+## How Does Religion Effect Naming Conventions
+
+Mary, Martha, Peter, and Paul are all Christian names. From 1920 - 2000, compare the name usage of each of the four names. What trends do you notice?
+
+Each Christian name in this dataset exhibits a declining trend starting around the year 1950, indicating a diminishing popularity in naming children after biblical figures.
+
+```{python}
+
+#Create a line graph with all four names, showing their popularity over time.
+
+# Filter rows for the selected names
+selected_names = ['Mary', 'Martha', 'Peter', 'Paul']
+selected_df = df[df['name'].isin(selected_names) & (df['year'] >= 1920) & (df['year'] <= 2000)]
+
+# Create a line graph with labels and a title
+fig = go.Figure()
+
+#Assign colors to the names on the graph
+for name, color in zip(selected_names, ['blue', 'green', 'red', 'black']):
+    name_df = selected_df[selected_df['name'] == name]
+    fig.add_trace(go.Scatter(x=name_df['year'], y=name_df['Total'], mode='lines', name=name, line=dict(color=color)))
+
+#Labels
+fig.update_layout(title="Popularity of Christian Names (1920-2000)", xaxis_title="Year", yaxis_title="Total")
+
+# Show the legend with labels
+fig.update_layout(legend=dict(title="Names"))
+
+fig.show()
+```
+
+
+```{python}
+
+#Create a table view for the dataset above
+
+# Filter rows for the selected names
+selected_names = ['Mary', 'Martha', 'Peter', 'Paul']
+selected_df = df[df['name'].isin(selected_names) & (df['year'] >= 1920) & (df['year'] <= 2000)]
+
+# Create a table view
+table_data = {'Year': [], 'Mary': [], 'Martha': [], 'Peter': [], 'Paul': []}
+
+# Iterate through the years
+for year in range(1920, 2001):
+    table_data['Year'].append(year)
+    for name in selected_names: #The for loop is used to filter out datasets where the value is null.
+        name_data = selected_df[(selected_df['name'] == name) & (selected_df['year'] == year)]['Total'].tolist()
+        table_data[name].append(name_data[0] if name_data else '')
+
+table = go.Figure(data=[go.Table(
+    header=dict(values=['Year'] + selected_names),
+    cells=dict(values=[table_data['Year']] + [table_data[name] for name in selected_names]))
+])
+
+table.update_layout(title='Christian Names Popularity (1920-2000) - Table View')
+
+table.show()
+
+```
+
+## How Does Popular Culture Effect Naming Conventions
+
+Think of a unique name from a famous movie. Plot the usage of that name and see how changes line up with the movie release. Does it look like the movie had an effect on usage?
+
+In the first dataset, we see a very discernable spike in the popularity of the name "Forrest" coresponding to the release of the movie "Forrest Gump." It appears that the movie had a strong effect on the usage of the name.
+
+```{python}
+
+#Create a line graph showing the popularity of a name over time. Create a distinct red line to show the increase of popularity from that name when the movie released.
+
+# Filter rows where the name is "Forrest"
+forrest_df = df[df['name'] == 'Forrest']
+
+# Sum counts across all states for each year
+forrest_df['Total'] = forrest_df.iloc[:, 2:].sum(axis=1)
+
+# Create a line graph with labels and a title
+fig = px.line(forrest_df, x="year", y="Total", title="Usage of the Name 'Forrest' Over Time in the United States")
+
+# Add vertical line at the year 1994
+fig.add_vline(x=1994, line_dash="dash", line_color="red", annotation_text="Forrest Gump", annotation_position="bottom left")
+
+fig.show()
+```
+
+In the second dataset, we see a discernable spike in the usage of the name "Leia" corresponding to each individual film release in the original Star Wars trilogy. Additionally, we see an exponential rise in the popularity of the name "Leia" corresponding with the release of the prequel trilogy, and culminating at the premere of "Force Awakens."
+
+```{python}
+
+#Create a line graph showing the popularity of a name over time. Create a distinct red line to show the increase of popularity from that name when the movie released.
+
+# Filter rows where the name is "Leia"
+leia_df = df[df['name'] == 'Leia']
+
+# Sum counts across all states for each year
+leia_df['Total'] = leia_df.iloc[:, 2:].sum(axis=1)
+
+# Create a line graph with labels and a title
+fig = px.line(leia_df, x="year", y="Total", title="Usage of the Name 'Leia' Over Time in the United States")
+
+# Add vertical line at the year 1977
+fig.add_vline(x=1977, line_dash="dash", line_color="red", annotation_text="Star Wars", annotation_position="top left")
+
+# Add vertical line at the year 1980
+fig.add_vline(x=1980, line_dash="dash", line_color="red", annotation_text="Empire Strikes Back", annotation_position="left")
+
+# Add vertical line at the year 1983
+fig.add_vline(x=1983, line_dash="dash", line_color="red", annotation_text="Return of the Jedi", annotation_position="bottom left")
+
+# Add vertical line at the year 1999
+fig.add_vline(x=1999, line_dash="dash", line_color="red", annotation_text="Phantom Menace", annotation_position="top left")
+
+# Add vertical line at the year 2002
+fig.add_vline(x=2002, line_dash="dash", line_color="red", annotation_text="Attack of the Clones", annotation_position="left")
+
+# Add vertical line at the year 2005
+fig.add_vline(x=2005, line_dash="dash", line_color="red", annotation_text="Revenge of the Sith", annotation_position="bottom left")
+
+# Add vertical line at the year 2015
+fig.add_vline(x=2015, line_dash="dash", line_color="red", annotation_text="Force Awakens", annotation_position="bottom left")
+
+fig.show()
+```
+
+```{python}
+
+#Show a graph showing the data you collected above.
+
+# Filter rows for the names "Leia" and "Forrest"
+selected_names = ['Leia', 'Forrest']
+selected_df = df[df['name'].isin(selected_names)]
+
+# Add counts across all states for each year
+selected_df['Total'] = selected_df.iloc[:, 2:].sum(axis=1)
+
+# Create a table view
+table_data = {'Year': [], 'Leia': [], 'Forrest': []}
+
+# Iterate through the years
+for year in range(1920, 2016):
+    table_data['Year'].append(year)
+    for name in selected_names:
+        name_data = selected_df[(selected_df['name'] == name) & (selected_df['year'] == year)]['Total'].tolist()
+        table_data[name].append(name_data[0] if name_data else '') #For function handles exceptions where there is no data for that year, since Leia doesn't have data until around 1960
+
+table = go.Figure(data=[go.Table(
+    header=dict(values=['Year'] + selected_names),
+    cells=dict(values=[table_data['Year']] + [table_data[name] for name in selected_names]))
+])
+
+table.update_layout(title='Usage of the Names "Leia" and "Forrest" Over Time')
+
+table.show()
+
+```
+
+NOTE: There are blank spaces in the table where no data was collected on the usage of the name "Leia" for that year.

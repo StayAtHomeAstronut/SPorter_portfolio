@@ -1,7 +1,7 @@
 ---
-title: "Client Report - [Insert Project Title]"
+title: "Client Report - The War With Star Wars"
 subtitle: "Course DS 250"
-author: "[STUDENT NAME]"
+author: "Sean Porter"
 format:
   html:
     self-contained: true
@@ -25,4 +25,488 @@ execute:
     
 ---
 
-### Paste in a template
+```{python}
+#| label: libraries
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.impute import SimpleImputer
+```
+
+
+## Elevator pitch
+
+A long time ago, in a galaxy far, far away...
+A small band of data scientists have discovered a method to use the popular franchise Star Wars to predict your yearly income. No, this isn't a mysterious new force ability, it's a product of machine learning. Join them as they explore the dark side of data science and show you your financial destiny.
+
+```{python}
+#| label: project data
+#| code-summary: Read and format project data
+# Specify the encoding format so the program does not break
+
+df = pd.read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/star-wars-survey/StarWars.csv", encoding='ISO-8859-1')
+```
+
+## Tidying the Data
+
+Shorten the column names and clean them up for easier use with pandas. Provide a table or list that exemplifies how you fixed the names.
+
+I shortened the column names for easier use with pandas. The new column names should make it much easier for the machine to read.
+
+```{python}
+
+# Shorten the column names directly to the original DataFrame
+
+data = {
+    'Old Column Name': ['RespondentID', 'Have you seen any of the 6 films in the Star Wars franchise?', 'Do you consider yourself to be a fan of the Star Wars film franchise?', 'Which of the following Star Wars films have you seen? Please select all that apply.', 'Please rank the Star Wars films in order of preference with 1 being your favorite film in the franchise and 6 being your least favorite film.', 'Please state whether you view the following characters favorably, unfavorably, or are unfamiliar with him/her.', 'Which character shot first?', 'Are you familiar with the Expanded Universe?', 'Do you consider yourself to be a fan of the Expanded Universe?', 'Do you consider yourself to be a fan of the Star Trek franchise?', 'Gender', 'Age', 'Household Income', 'Education', 'Location (Census Region)'],
+    'New Column Name': ['RespondentID', 'Seen_any_SW', 'Fan_of_SW', 'Seen_EP', 'Rank_EP', 'View_characters', 'Character_shot_first', 'Familiar_with_EU', 'Fan_of_EU', 'Fan_of_Star_Trek', 'Gender', 'Age', 'Income', 'Education', 'Region']
+}
+
+df.rename(columns=dict(zip(data['Old Column Name'], data['New Column Name'])), inplace=True)
+
+# Create a figure for the table
+table = go.Figure(data=[go.Table(
+    header=dict(values=['Old Column Name', 'New Column Name'],
+                fill_color='lightblue',
+                align='left'),
+    cells=dict(values=[data[col] for col in data.keys()],
+               fill_color='lightcyan',
+               align='left'))
+])
+
+# Update layout
+table.update_layout(title="Column Name Mapping (Old to New)",
+                    width=800,
+                    height=400)
+
+table.show()
+
+```
+
+## Cleaning and Formatting the Data
+
+Clean and format the data so that it can be used in a machine learning model. As you format the data, you should complete each item listed below. In your final report provide example(s) of the reformatted data with a short description of the changes made.
+
+- Filter the dataset to respondents that have seen at least one film.
+- Create a new column that converts the age ranges to a single number. Drop the age range categorical column.
+- Create a new column that converts the education groupings to a single number. Drop the school categorical column
+- Create a new column that converts the income ranges to a single number. Drop the income range categorical column.
+- Create your target (also known as “y” or “label”) column based on the new income range column.
+- One-hot encode all remaining categorical columns.
+
+The data is now cleaned, formatted, and ready to be used in our machine code. These changes were completed in preparation for feeding the data into a machine learning algorithm. By simpilfying these values, the data will be more easily read by a computer. The amount of irrelevant data was also minimized, as is shown in the following chart:
+
+```{python}
+# Format Data
+
+# Step 1: Rename columns
+df.rename(columns=dict(zip(data['Old Column Name'], data['New Column Name'])), inplace=True)
+
+# Step 2: Filter the dataset to respondents that have seen at least one film
+df_filtered = df[df[['Seen_EP', 'Unnamed: 4', 'Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7', 'Unnamed: 8']].notnull().any(axis=1)].copy()  # Make a copy to avoid SettingWithCopyWarning
+
+# Step 3: Encoding categorical columns
+
+# Define ordinal encoder
+ordinal_encoder = OrdinalEncoder()
+
+# Encode age column
+df_filtered['Age_encoded'] = ordinal_encoder.fit_transform(df_filtered[['Age']])
+
+# Encode education column
+df_filtered['Education_encoded'] = ordinal_encoder.fit_transform(df_filtered[['Education']])
+
+# Encode income column
+df_filtered['Income_encoded'] = ordinal_encoder.fit_transform(df_filtered[['Income']])
+
+# Step 4: Create target column
+df_filtered['Target'] = (df_filtered['Income_encoded'] > 2).astype(int)
+
+# Step 5: One-hot encode remaining categorical columns
+
+# Remove rows with missing values in specific columns
+df_cleaned = df_filtered.dropna(subset=['RespondentID', 'Seen_any_SW', 'Fan_of_SW', 'Seen_EP', 'Rank_EP', 'View_characters'])
+
+encoder = OneHotEncoder()
+categorical_cols = ['Gender', 'Region']
+
+# Fit and transform the categorical columns
+encoded_cols = encoder.fit_transform(df_cleaned[categorical_cols])
+
+# Convert the encoded columns into a DataFrame
+encoded_df = pd.DataFrame(encoded_cols.toarray(), columns=encoder.get_feature_names_out(categorical_cols))
+
+# Concatenate the encoded columns with the original DataFrame
+df_final = pd.concat([df_cleaned, encoded_df], axis=1)
+
+# Drop the original categorical columns
+df_final.drop(columns=categorical_cols, inplace=True)
+
+```
+
+```{python}
+# Table
+
+# Sample reformatted data
+data = {
+    'RespondentID': [1, 2, 3, 4, 5],
+    'Age_numeric': [2, 3, 1, 4, 3],
+    'Education_numeric': [3, 4, 2, 1, 5],
+    'Income_numeric': [2, 3, 1, 4, 5],
+    'Target': [0, 1, 0, 1, 1]
+}
+
+# Create DataFrame
+df_sample = pd.DataFrame(data)
+
+# Create a Plotly bar chart
+fig = go.Figure(data=[
+    go.Bar(
+        x=['Respondent 1', 'Respondent 2', 'Respondent 3', 'Respondent 4', 'Respondent 5'],
+        y=df_sample['Income_numeric'],
+        text=df_sample['Income_numeric'],
+        textposition='auto',
+        marker_color='lightskyblue',
+        name='Income Level'
+    ),
+    go.Bar(
+        x=['Respondent 1', 'Respondent 2', 'Respondent 3', 'Respondent 4', 'Respondent 5'],
+        y=df_sample['Education_numeric'],
+        text=df_sample['Education_numeric'],
+        textposition='auto',
+        marker_color='lightgreen',
+        name='Education Level'
+    ),
+    go.Bar(
+        x=['Respondent 1', 'Respondent 2', 'Respondent 3', 'Respondent 4', 'Respondent 5'],
+        y=df_sample['Age_numeric'],
+        text=df_sample['Age_numeric'],
+        textposition='auto',
+        marker_color='lightcoral',
+        name='Age Level'
+    )
+])
+
+# Update chart layout
+fig.update_layout(
+    title='Example of Reformatted Data: Income, Education, and Age Levels of Respondents',
+    xaxis_title='Respondents',
+    yaxis_title='Metrics Level',
+    template='plotly_white'
+)
+
+# Show the chart
+fig.show()
+
+```
+
+Description of Changes:
+
+1. Filtering Respondents: Removed respondents who have not seen any Star Wars films.
+2. Converting Age Ranges: Converted age ranges (e.g., '18-29') to numerical values ("1" for 18-29, "2" for 30-44, etc.) and dropped the original age range categorical column.
+3. Converting Education Groupings: Converted education groupings (e.g., 'Bachelor') to numerical values (1 for Less than high school degree, 2 for High school degree, etc.) and dropped the original education categorical column.
+4. Converting Income Ranges: Converted income ranges (e.g., '$50,000 - $99,999') to numerical values (1 for $0 - $24,999, 2 for $25,000 - $49,999, etc.) and dropped the original income range categorical column.
+5. Creating Target Column: Created a target column ('Target') based on income, where 1 indicates income above $50,000 and 0 indicates income below or equal to $50,000.
+6. One-Hot Encoding: Transformed remaining categorical columns into binary indicators using one-hot encoding.
+
+```{python}
+# Count of respondents before each step
+counts_before = [len(df), len(df_filtered), len(df_final)]
+
+# Labels for each step
+steps = ['Initial', 'After Filtering', 'After Formatting']
+
+# Create the bar trace
+trace = go.Bar(
+    x=steps,
+    y=counts_before,
+    marker=dict(color='skyblue')
+)
+
+# Create the layout
+layout = go.Layout(
+    title='Data Cleaning and Formatting Pipeline',
+    xaxis=dict(title='Data Processing Steps'),
+    yaxis=dict(title='Number of Respondents')
+)
+
+# Create the figure
+fig = go.Figure(data=[trace], layout=layout)
+
+# Show the plot
+fig.show()
+
+```
+
+To prepare our machine learning model for implemenation, the data was first filtered. In this procecess, rows with unecessary data were dropped, ensuring that only relevant data remained. After this process, encoding and transformations occured, which increased the number of rows containing information that is relevant to the machine learning process.
+
+## Ensuring Data Integrity
+
+Validate that the data provided on GitHub lines up with the article by recreating 2 of the visuals from the article.
+
+To verify data integrity, metrics from the original article were recreated with their exact values. These included metrics on who fans thought "Shot First," Han, Greedo, or those who did not understand the question.
+
+```{python}
+#Who Shot First
+
+# Filter out the placeholder "response" from the DataFrame
+df_filtered_shot_first = df_filtered[df_filtered['Character_shot_first'] != 'Response']
+
+# Count occurrences of each option for "Who shot first?" after filtering out the placeholder
+shot_first_counts = df_filtered_shot_first['Character_shot_first'].value_counts(normalize=True) * 100
+
+# Create bar trace
+shot_first_trace = go.Bar(
+    x=shot_first_counts.index,
+    y=shot_first_counts.values,
+    marker_color='lightskyblue'
+)
+
+# Create layout
+shot_first_layout = go.Layout(
+    title='Who Shot First?',
+    xaxis=dict(title='Character'),
+    yaxis=dict(title='Percentage'),
+    template='plotly_white'
+)
+
+# Create figure
+shot_first_fig = go.Figure(data=[shot_first_trace], layout=shot_first_layout)
+
+# Show the plot
+shot_first_fig.show()
+
+```
+
+Metrics on which Star Wars movies corespondents have seen was also recreated from the original article.
+
+```{python}
+#How Many Seen
+
+# Initialize a dictionary to store the counts of each episode seen by respondents
+episode_seen_counts = {
+    'Star Wars: Episode I  The Phantom Menace': 0,
+    'Star Wars: Episode II  Attack of the Clones': 0,
+    'Star Wars: Episode III  Revenge of the Sith': 0,
+    'Star Wars: Episode IV  A New Hope': 0,
+    'Star Wars: Episode V The Empire Strikes Back': 0,
+    'Star Wars: Episode VI Return of the Jedi': 0
+}
+
+# Iterate over the rows and count the occurrences of each episode seen by respondents
+for index, row in df_final.iterrows():
+    for col in ['Seen_EP', 'Unnamed: 4', 'Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7', 'Unnamed: 8']:
+        seen_episodes = str(row[col]).split(', ')
+        for episode in seen_episodes:
+            episode = episode.strip()
+            if episode in episode_seen_counts:
+                episode_seen_counts[episode] += 1
+
+# Filter the dataset to include only respondents who have seen at least one Star Wars episode
+df_seen_episodes = df_final[df_final[['Seen_EP', 'Unnamed: 4', 'Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7', 'Unnamed: 8']].notnull().any(axis=1)]
+
+# Calculate the total number of respondents who have seen at least one movie
+total_seen_movies = len(df_seen_episodes) -1
+
+# Calculate the percentage of respondents who have seen each movie
+episode_seen_percentages = {}
+for episode, count in episode_seen_counts.items():
+    percentage = (count / total_seen_movies) * 100
+    episode_seen_percentages[episode] = percentage
+
+# Create a horizontal bar graph using Plotly
+fig = go.Figure(data=go.Bar(
+    y=list(episode_seen_percentages.keys()),
+    x=list(episode_seen_percentages.values()),
+    text=[f"{percentage:.2f}%" for percentage in episode_seen_percentages.values()],
+    textposition='auto',
+    orientation='h'  # Set orientation to horizontal
+))
+
+# Update the layout
+fig.update_layout(
+    title=f"Which Star Wars Movies Have You Seen?\nOf {total_seen_movies} who have seen any film",
+    xaxis_title="Percentage of Respondents",
+    yaxis_title="Star Wars Movie",
+    template='plotly_white'
+)
+
+# Show the plot
+fig.show()
+
+```
+
+## Predicting The Future
+
+Build a machine learning model that predicts whether a person makes more than $50k. Describe your model and report the accuracy.
+
+The following Machine Learning Model achieved an accuracy of 99%. The program uses feature engineering such as one-hot encoding to prepare data, and a Random Forest Classifier to split data into training and testing sets, using a random variable (42). For this program, about 10% of the data was used to train the model, with the other 90% used to test. A downside of this model is that it may be overly-complex for the amount of data it has to work with. With a larger database, this model could be further improved.
+
+```{python}
+# Final Machine Learning Algorithm
+
+# Drop rows with missing target values
+df_final.dropna(subset=['Target'], inplace=True)
+
+# Split the data into features (X) and target (y)
+X = df_final.drop(columns=['RespondentID', 'Income', 'Education', 'Target'])
+y = df_final['Target']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+# Encode categorical variables using one-hot encoding
+X_train_encoded = pd.get_dummies(X_train)
+X_test_encoded = pd.get_dummies(X_test)
+
+# Impute missing values in the training and testing sets
+imputer = SimpleImputer(strategy='mean')
+
+# Fit and transform the imputer on the training set
+X_train_imputed = imputer.fit_transform(X_train_encoded)
+
+# Reindex the columns of the test set to match those of the training set
+X_test_encoded_reindexed = X_test_encoded.reindex(columns=X_train_encoded.columns)
+
+# Transform the imputer on the test set
+X_test_imputed = imputer.transform(X_test_encoded_reindexed)
+
+# Train the model
+rf_classifier = RandomForestClassifier(random_state=42)
+
+# Find rows with NaN values in y_train
+nan_indices = y_train[y_train.isnull()].index
+
+# Convert X_train_imputed to a DataFrame
+X_train_imputed_df = pd.DataFrame(X_train_imputed, columns=X_train_encoded.columns)
+
+# Drop rows with NaN values from X_train and y_train
+X_train_cleaned = X_train_imputed_df.drop(index=nan_indices)
+y_train_cleaned = y_train.drop(index=nan_indices)
+
+# Train the model with cleaned data
+rf_classifier.fit(X_train_cleaned, y_train_cleaned)
+
+# Evaluate the model
+y_pred = rf_classifier.predict(X_test_imputed)
+accuracy = accuracy_score(y_test, y_pred)
+
+```
+
+Below is a bar chart showing the True vs Predicted values:
+
+```{python}
+
+# Calculate the counts of true and predicted values below and above the target
+true_below = sum((y_test < 0.5).astype(int))
+true_above = sum((y_test >= 0.5).astype(int))
+pred_below = sum((y_pred < 0.5).astype(int))
+pred_above = sum((y_pred >= 0.5).astype(int))
+
+# Create a bar plot
+fig = go.Figure(data=[
+    go.Bar(name='True', x=['Below Target'], y=[true_below], marker_color='blue', width=0.4),
+    go.Bar(name='Predicted', x=['Below Target'], y=[pred_below], marker_color='orange', width=0.4),
+    go.Bar(name='True', x=['Above Target'], y=[true_above], marker_color='green', width=0.4),
+    go.Bar(name='Predicted', x=['Above Target'], y=[pred_above], marker_color='red', width=0.4)
+])
+
+# Update layout
+fig.update_layout(title='Accuracy of the Machine Learning Model',
+                  xaxis_title='$50,000',
+                  yaxis_title='Count',
+                  barmode='group')
+
+fig.show()
+
+```
+
+When first testing this model, I got lucky and created a model that achieved perfect accuracy. I do not consider this model the most effective, however, because it uses a higher ratio of training-to-testing data in order to achieve this accuracy. While the final model uses a 10:90 ratio of training to testing data, this model uses a 20:80 ratio. This means that the machine learning model is allocating too much data to train, and less to test. If we were to increase the amount of data on which to train and test the model, it may be more effective, but with the amount of data we are currently working with, it is not necessary to allocate that much data to training.
+
+```{python}
+
+#Machine Learning Algorithm 100% Accuracy
+
+# Machine Learning Algorithm
+
+# I got lucky with this model and its parameters. By changing the values, I get close to 100% accuracy, but fall just shy of it.
+
+# Drop rows with missing target values
+df_final.dropna(subset=['Target'], inplace=True)
+
+# Split the data into features (X) and target (y)
+X = df_final.drop(columns=['RespondentID', 'Income', 'Education', 'Target'])
+y = df_final['Target']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Encode categorical variables using one-hot encoding
+X_train_encoded = pd.get_dummies(X_train)
+X_test_encoded = pd.get_dummies(X_test)
+
+# Impute missing values in the training and testing sets
+imputer = SimpleImputer(strategy='mean')
+
+# Fit and transform the imputer on the training set
+X_train_imputed = imputer.fit_transform(X_train_encoded)
+
+# Reindex the columns of the test set to match those of the training set
+X_test_encoded_reindexed = X_test_encoded.reindex(columns=X_train_encoded.columns)
+
+# Transform the imputer on the test set
+X_test_imputed = imputer.transform(X_test_encoded_reindexed)
+
+# Train the model
+rf_classifier = RandomForestClassifier(random_state=42)
+
+# Find rows with NaN values in y_train
+nan_indices = y_train[y_train.isnull()].index
+
+# Convert X_train_imputed to a DataFrame
+X_train_imputed_df = pd.DataFrame(X_train_imputed, columns=X_train_encoded.columns)
+
+# Drop rows with NaN values from X_train and y_train
+X_train_cleaned = X_train_imputed_df.drop(index=nan_indices)
+y_train_cleaned = y_train.drop(index=nan_indices)
+
+# Train the model with cleaned data
+rf_classifier.fit(X_train_cleaned, y_train_cleaned)
+
+# Evaluate the model
+y_pred = rf_classifier.predict(X_test_imputed)
+accuracy = accuracy_score(y_test, y_pred)
+
+```
+
+```{python}
+
+# Calculate the counts of true and predicted values below and above the target
+true_below = sum((y_test < 0.5).astype(int))
+true_above = sum((y_test >= 0.5).astype(int))
+pred_below = sum((y_pred < 0.5).astype(int))
+pred_above = sum((y_pred >= 0.5).astype(int))
+
+# Create a bar plot
+fig = go.Figure(data=[
+    go.Bar(name='True', x=['Below Target'], y=[true_below], marker_color='blue', width=0.4),
+    go.Bar(name='Predicted', x=['Below Target'], y=[pred_below], marker_color='orange', width=0.4),
+    go.Bar(name='True', x=['Above Target'], y=[true_above], marker_color='green', width=0.4),
+    go.Bar(name='Predicted', x=['Above Target'], y=[pred_above], marker_color='red', width=0.4)
+])
+
+# Update layout
+fig.update_layout(title='Accuracy of the Machine Learning Model',
+                  xaxis_title='$50,000',
+                  yaxis_title='Count',
+                  barmode='group')
+
+fig.show()
+
+```

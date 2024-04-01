@@ -1,7 +1,7 @@
 ---
-title: "Client Report - [Insert Project Title]"
+title: "Client Report - Finding Relationships in Baseball"
 subtitle: "Course DS 250"
-author: "[STUDENT NAME]"
+author: "Sean Porter"
 format:
   html:
     self-contained: true
@@ -25,4 +25,272 @@ execute:
     
 ---
 
-### Paste in a template
+```{python}
+#| label: libraries
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+import sqlite3
+```
+
+
+## Elevator pitch
+
+"America's Favorite Pasttime" -- for over a century, Baseball has captivated fans. From its humble origins in Cooperstown, NY, Baseball has since become a world-renouned multi-billion dollar sports industry. But behind this crowd-pleasing spectacle, what can data teach us about the sport? What are the origins of its players? How good can one become at the sport? What team is the very best? Join us as we dive into the analytics behind the old ball game.
+
+## Baseball Players Who Attended BYU-Idaho
+
+Write an SQL query to create a new dataframe about baseball players who attended BYU-Idaho. The new table should contain five columns: playerID, schoolID, salary, and the yearID/teamID associated with each salary. Order the table by salary (highest to lowest) and print out the table in your report.
+
+The following is a dataframe about players who attended BYU-Idaho, ordered by salary. Even after ensuring each row in the dataset was unique, two players were repeatedly listed in the data. This is because their salary changed from year-to-year. This table is great for seeing their professional progress over their careers.
+
+```{python}
+
+sqlite_file = 'lahmansbaseballdb.sqlite'
+con = sqlite3.connect(sqlite_file) #I am getting an error if I try to define this only once above.
+
+#Find players who attanded BYU-Idaho and order it correctly
+
+#PlayerID and schoolID are found in 'collegeplaying'
+#playerID, salary, YearID, TeamID found in 'salaries'
+#Join them on 'playerID'
+
+#BYU-Idaho schoolID: idbyuid
+
+#SQL query
+q = '''
+    SELECT DISTINCT collegeplaying.playerID, collegeplaying.schoolID, salaries.salary, salaries.yearID, salaries.teamID
+    FROM collegeplaying
+    JOIN salaries ON collegeplaying.playerID = salaries.playerID
+    WHERE schoolID = 'idbyuid'
+    ORDER BY salary DESC
+    '''
+
+#Execute the query
+results = pd.read_sql_query(q, con)
+con.close()
+
+# Create a Plotly figure
+fig = go.Figure(data=[go.Table(
+    header=dict(values=['Player ID', 'School ID', 'Salary', 'Year ID', 'Team ID'],
+                fill_color='paleturquoise',
+                align='left'),
+    cells=dict(values=[results.playerID, results.schoolID, results.salary, results.yearID, results.teamID],
+               fill_color='lavender',
+               align='left'))
+])
+
+# Update table layout
+fig.update_layout(title='College Players Information',
+                  width=800, height=600)
+
+# Show the table
+fig.show()
+
+```
+
+## Batting Averages
+
+This three-part question requires you to calculate batting average (number of hits divided by the number of at-bats)
+
+Write an SQL query that provides playerID, yearID, and batting average for players with at least 1 at bat that year. Sort the table from highest batting average to lowest, and then by playerid alphabetically. Show the top 5 results in your report.
+
+Use the same query as above, but only include players with at least 10 at bats that year. Print the top 5 results.
+
+Now calculate the batting average for players over their entire careers (all years combined). Only include players with at least 100 at bats, and print the top 5 results.
+
+Better players appear to have a worse batting average. This is because the more data we have on a baseball player, the more accurate their batting average data becomes. When looking at batting averages for players who may have only had one at-bat in a season, we can have circumstances where their batting average is perfectly 1:1, or 100% successful, as they hit their only at-bat. As we increase the number of at-bats, however, we gain a more comprehensive understanding of thier true batting average. This data also teaches us about the evolution of the sport. The highest batting averages on record are from more than 100 years ago. This suggests that systematic rule changes and standarization have made the game more fair over the years.
+
+```{python}
+
+#Find batting average for players who have had at least 1 at-bat
+
+#playerID, yearID, and AB exist within "batting"
+#AB: "At Bat" in "batting"
+#H: "Hits" in "batting"
+
+sqlite_file = 'lahmansbaseballdb.sqlite'
+con = sqlite3.connect(sqlite_file)
+
+# SQL query
+query = """
+    SELECT 
+        playerID, 
+        yearID, 
+        SUM(H) / SUM(AB) AS batting_average
+    FROM 
+        batting
+    WHERE 
+        AB > 0
+    GROUP BY 
+        playerID, 
+        yearID
+    ORDER BY 
+        batting_average DESC,
+        playerID ASC
+    LIMIT 5;
+"""
+
+# Execute the query and get results
+cursor = con.cursor()
+cursor.execute(query)
+results = cursor.fetchall()
+
+# get data for the table
+player_ids = [row[0] for row in results]
+year_ids = [row[1] for row in results]
+batting_averages = [row[2] for row in results]
+
+# Create table
+table_trace = go.Table(
+    header=dict(values=['Player ID', 'Year ID', 'Batting Average']),
+    cells=dict(values=[player_ids, year_ids, batting_averages])
+)
+
+# Create figure
+layout = go.Layout(title='Top 5 Batting Averages for Players With At Least 1 At-Bat')
+fig = go.Figure(data=[table_trace], layout=layout)
+fig.show()
+
+```
+
+```{python}
+
+#Find batting average for players who have had at least 10 at-bats
+
+sqlite_file = 'lahmansbaseballdb.sqlite'
+con = sqlite3.connect(sqlite_file)
+
+# SQL query
+query = """
+    SELECT 
+        playerID, 
+        yearID, 
+        ROUND(CAST(SUM(H) AS REAL) / CAST(SUM(AB) AS REAL), 2) AS batting_average
+    FROM 
+        batting
+    WHERE 
+        AB >= 10
+    GROUP BY 
+        playerID, 
+        yearID
+    ORDER BY 
+        batting_average DESC,
+        playerID ASC
+    LIMIT 5;
+"""
+
+# Execute the query
+cursor = con.cursor()
+cursor.execute(query)
+results = cursor.fetchall()
+
+# get data for the table
+player_ids = [row[0] for row in results]
+year_ids = [row[1] for row in results]
+batting_averages = [row[2] for row in results]
+
+table_trace = go.Table(
+    header=dict(values=['Player ID', 'Year ID', 'Batting Average']),
+    cells=dict(values=[player_ids, year_ids, batting_averages])
+)
+
+# Create figure
+layout = go.Layout(title='Top 5 Batting Averages (Minimum 10 At-Bats)')
+fig = go.Figure(data=[table_trace], layout=layout)
+fig.show()
+
+```
+
+```{python}
+
+#Find batting average for players who have had at least 100 at-bats
+
+sqlite_file = 'lahmansbaseballdb.sqlite'
+con = sqlite3.connect(sqlite_file)
+
+# SQL query
+query = """
+    SELECT 
+        playerID, 
+        yearID, 
+        ROUND(CAST(SUM(H) AS REAL) / CAST(SUM(AB) AS REAL), 2) AS batting_average
+    FROM 
+        batting
+    WHERE 
+        AB >= 100
+    GROUP BY 
+        playerID, 
+        yearID
+    ORDER BY 
+        batting_average DESC,
+        playerID ASC
+    LIMIT 5;
+"""
+
+# Execute the query
+cursor = con.cursor()
+cursor.execute(query)
+results = cursor.fetchall()
+
+# get data for the table
+player_ids = [row[0] for row in results]
+year_ids = [row[1] for row in results]
+batting_averages = [row[2] for row in results]
+
+table_trace = go.Table(
+    header=dict(values=['Player ID', 'Year ID', 'Batting Average']),
+    cells=dict(values=[player_ids, year_ids, batting_averages])
+)
+
+# Create figure
+layout = go.Layout(title='Top 5 Batting Averages (Minimum 100 At-Bats)')
+fig = go.Figure(data=[table_trace], layout=layout)
+fig.show()
+
+```
+
+
+## Greatest Of All Time
+
+Pick any two baseball teams and compare them using a metric of your choice (average salary, home runs, number of wins, etc). Write an SQL query to get the data you need, then make a graph using Plotly Express to visualize the comparison. What do you learn?
+
+When consulting fans and analysts alike, two teams stand out as the "Greatest of All Time," the New York Yankees and the San Francisco Giants. These teams seem to draw more attention from fans than any other. The data, however, suggests that the true greatest team of the two are the New York Yankees, with the most total wins.
+
+```{python}
+#Get a total list of wins from New York Yankees and San Francisco Giants
+
+#name = New York Yankees in 'Teams'
+#name = San Francisco Giants in 'Teams'
+
+sqlite_file = 'lahmansbaseballdb.sqlite'
+con = sqlite3.connect(sqlite_file)
+
+# SQL query to retrieve the total wins for each team
+
+sf_giants_name = 'San Francisco Giants'
+ny_yankees_name = 'New York Yankees'
+
+query_wins = f"""
+    SELECT name, SUM(W) AS total_wins
+    FROM teams
+    WHERE name IN ('{sf_giants_name}', '{ny_yankees_name}')
+    GROUP BY name
+"""
+
+# Retrieve the total wins
+
+results_wins = con.execute(query_wins).fetchall()
+con.close()
+
+# Make a bar plot
+
+df = pd.DataFrame(results_wins, columns=['TeamName', 'TotalWins'])
+fig = px.bar(df, x='TeamName', y='TotalWins', title='Comparison of Total Wins',
+             labels={'TotalWins': 'Total Wins', 'TeamName': 'Team'})
+fig.show()
+
+```
+
